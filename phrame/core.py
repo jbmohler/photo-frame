@@ -62,8 +62,6 @@ def crop_to(im, width, height):
 
 
 def dated(im):
-    edit = ImageDraw.Draw(im)
-
     font_ratio = 0.09
     epsilon = 0.005
     target = im.size[1] * font_ratio
@@ -89,16 +87,41 @@ def dated(im):
 
     p_x, p_y = im.size
 
+    b_y = int(3 * height * 1.1) + 10
+    b_x = max(
+        [font.getsize(line)[0] for index, line in enumerate([line1, line2, line3])]
+    ) + int(im.size[0] / 20)
+
+    gradient = Image.new('L', im.size, 255)
+    #gradient = Image.new('L', (1, 255))
+    #for y in range(255):
+    #    gradient.putpixel((0, 254 - y), y)
+
+    #alpha = gradient.resize(b_x, b_y)
+
+    # https://stackoverflow.com/questions/16373425/add-text-on-image-using-pil
+    darkened = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(darkened)
+    right, upper, left, lower = p_x - b_x - 8, p_y - b_y - int(height / 2), p_x - 8, p_y - int(height / 2)
+    #for x in range(right, left):
+    #    for y in range(upper, lower):
+    #        gradient.putpixel((x, y), 255)
+    draw.rectangle((right, upper, left, lower), (0, 255, 255, 255))
+
+    im.putalpha(gradient)
+    im2 = Image.blend(im, darkened, 0.4)
+    edit = ImageDraw.Draw(im2)
+
     for index, line in enumerate([line1, line2, line3]):
         width, _ = font.getsize(line)
         edit.text(
             (p_x - 15 - width, p_y - height * 1.1 * ((3 - index) + 0.5)),
             line,
-            (0, 0, 0),
+            (255, 255, 255),
             font,
         )
 
-    return im
+    return im2.convert('RGB')
 
 
 def image(fn, width=300, height=500):
