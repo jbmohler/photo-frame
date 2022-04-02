@@ -5,6 +5,11 @@ import random
 import httpx
 from PIL import Image, ImageFont, ImageDraw
 
+
+class ImageBuildError(Exception):
+    pass
+
+
 with open("config.json") as config:
     cdata = json.loads(config.read())
     WEATHER_LAT = cdata["weather"]["latitude"]
@@ -58,14 +63,29 @@ def crop_to(im, width, height):
 
 def dated(im):
     edit = ImageDraw.Draw(im)
-    font = ImageFont.truetype("/usr/share/fonts/truetype/lato/Lato-Heavy.ttf", 200)
+
+    font_ratio = 0.09
+    epsilon = 0.005
+    target = im.size[1] * font_ratio
+
+    height = None
+    points = 200
+    for i in range(3):
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/lato/Lato-Heavy.ttf", points
+        )
+
+        _, height = font.getsize("0")
+        if abs(height / im.size[1] - font_ratio) < epsilon:
+            break
+        else:
+            points = int(points / (height / target))
+            print(f"Retrying with points {points}")
 
     date = datetime.datetime.now()
     line1 = f"{date:%I:%M %p}".strip("0")
     line2 = f"{date:%B} {date.day}"
     line3 = "aslkdf"
-
-    _, height = font.getsize("0")
 
     p_x, p_y = im.size
 
@@ -81,9 +101,15 @@ def dated(im):
     return im
 
 
-def image(fn):
+def image(fn, width=300, height=500):
     with Image.open(fn) as im:
-        im = crop_to(im, width=300, height=500)
+        i_x, i_y = im.size
+        if i_x < width / 3:
+            raise ImageBuildError("width is too small")
+        if i_y < height / 3:
+            raise ImageBuildError("height is too small")
+
+        im = crop_to(im, width=width, height=height)
 
         im = dated(im)
 
