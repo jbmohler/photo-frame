@@ -62,7 +62,7 @@ def crop_to(im, width, height):
 
 
 def dated(im):
-    font_ratio = 0.09
+    font_ratio = 0.07
     epsilon = 0.005
     target = im.size[1] * font_ratio
 
@@ -83,7 +83,7 @@ def dated(im):
     date = datetime.datetime.now()
     line1 = f"{date:%I:%M %p}".strip("0")
     line2 = f"{date:%B} {date.day}"
-    line3 = "aslkdf"
+    line3 = ""
 
     p_x, p_y = im.size
 
@@ -92,36 +92,57 @@ def dated(im):
         [font.getsize(line)[0] for index, line in enumerate([line1, line2, line3])]
     ) + int(im.size[0] / 20)
 
-    gradient = Image.new('L', im.size, 255)
-    #gradient = Image.new('L', (1, 255))
-    #for y in range(255):
+    gradient = Image.new("L", im.size, 0)
+    # gradient = Image.new('L', (1, 255))
+    # for y in range(255):
     #    gradient.putpixel((0, 254 - y), y)
 
-    #alpha = gradient.resize(b_x, b_y)
+    # alpha = gradient.resize(b_x, b_y)
 
     # https://stackoverflow.com/questions/16373425/add-text-on-image-using-pil
-    darkened = Image.new('RGBA', im.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(darkened)
-    right, upper, left, lower = p_x - b_x - 8, p_y - b_y - int(height / 2), p_x - 8, p_y - int(height / 2)
-    #for x in range(right, left):
+    # https://stackoverflow.com/questions/43618910/pil-drawing-a-semi-transparent-square-overlay-on-image
+    # darkened = Image.new('RGBA', im.size, (0, 0, 0, 0))
+    # draw = ImageDraw.Draw(darkened)
+    right, upper, left, lower = (
+        p_x - b_x - 8,
+        p_y - b_y - int(height / 2),
+        p_x - 8,
+        p_y - int(height / 2),
+    )
+    # for x in range(right, left):
     #    for y in range(upper, lower):
     #        gradient.putpixel((x, y), 255)
-    draw.rectangle((right, upper, left, lower), (0, 255, 255, 255))
+    # draw.rectangle((right, upper, left, lower), (0, 255, 255, 255))
 
-    im.putalpha(gradient)
-    im2 = Image.blend(im, darkened, 0.4)
-    edit = ImageDraw.Draw(im2)
+    # im.putalpha(gradient)
+    # im2 = Image.blend(im, darkened, 0.4)
+    # edit = ImageDraw.Draw(im2)
+
+    draw = ImageDraw.Draw(im, "RGBA")
+    draw.rectangle((right, upper, left, lower), fill=(100, 100, 100, 127))
 
     for index, line in enumerate([line1, line2, line3]):
         width, _ = font.getsize(line)
-        edit.text(
+        draw.text(
             (p_x - 15 - width, p_y - height * 1.1 * ((3 - index) + 0.5)),
             line,
             (255, 255, 255),
             font,
         )
 
-    return im2.convert('RGB')
+    font = ImageFont.truetype(
+        "/usr/share/fonts/truetype/lato/Lato-Heavy.ttf", points // 3
+    )
+
+    width, _ = font.getsize("Trust in the lord with all your heart\nProverbs 3:5-6")
+    draw.text(
+        (p_x - 15 - width, p_y - height * 1.1 * ((3 - index) + 0.5)),
+        "Trust in the lord with all your heart\nProverbs 3:5-6",
+        (255, 255, 255),
+        font,
+    )
+
+    return im.convert("RGB")
 
 
 def image(fn, width=300, height=500):

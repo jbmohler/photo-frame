@@ -27,7 +27,7 @@ function refresh_image() {
 }
 
 function ready() {
-    window.setInterval(refresh_image, 1000);
+    window.setInterval(refresh_image, 2*1000);
 }
 """
 
@@ -36,15 +36,16 @@ function ready() {
 async def get_root(request):
     return response.html(ROOT, status=200)
 
+
 @app.route("/scripts/refresh.js")
 async def get_refresh_js(request):
-    return response.text(SCRIPT, status=200, content_type='text/javascript')
+    return response.text(SCRIPT, status=200, content_type="text/javascript")
 
 
 @app.route("/current.jpg")
 async def get_current_image(request):
-    width = request.args.get('width', 300)
-    height = request.args.get('height', 500)
+    width = request.args.get("width", 300)
+    height = request.args.get("height", 500)
 
     while True:
         filename = random.choice(core.photos)
@@ -55,7 +56,6 @@ async def get_current_image(request):
         except core.ImageBuildError as e:
             print(f"Image {filename} failed: {str(e)}")
             continue
-
 
     return await response.file_stream("output.jpg")
 
