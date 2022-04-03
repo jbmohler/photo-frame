@@ -1,4 +1,5 @@
 import os
+import re
 import datetime
 import json
 import random
@@ -15,6 +16,7 @@ with open("config.json") as config:
     WEATHER_LAT = cdata["weather"]["latitude"]
     WEATHER_LONG = cdata["weather"]["longitude"]
     PHOTO_ROOT = cdata["photos"]["root"]
+    INSPIRATION = cdata["inspiration"]
 
 
 def weather():
@@ -61,9 +63,45 @@ def crop_to(im, width, height):
     return im.crop((left, upper, right, lower))
 
 
-def dated(im):
+def wrap(s, font, width):
+    chunks = re.split("( +)", s)
+
+    lines = []
+    max_width = 0
+
+    current = None
+    curr_width = 0
+    for c in chunks:
+        ch_width, _ = font.getsize(c)
+
+        if current is None:
+            current = c
+            curr_width = ch_width
+        elif curr_width + ch_width > width:
+            # wrap
+            lines.append(current)
+            max_width = max(curr_width, max_width)
+
+            if c == len(c) * " ":
+                current = ""
+                curr_width = 0
+            else:
+                current = c
+                curr_width = ch_width
+        else:
+            current += c
+            curr_width += ch_width
+    if current:
+        lines.append(current)
+        max_width = max(curr_width, max_width)
+
+    return lines, max_width
+
+
+def dated(im, inspiration):
     font_ratio = 0.07
     epsilon = 0.005
+    line_spacing = 1.3
     target = im.size[1] * font_ratio
 
     height = None
@@ -73,7 +111,7 @@ def dated(im):
             "/usr/share/fonts/truetype/lato/Lato-Heavy.ttf", points
         )
 
-        _, height = font.getsize("0")
+        zwidth, height = font.getsize("0")
         if abs(height / im.size[1] - font_ratio) < epsilon:
             break
         else:
@@ -83,16 +121,14 @@ def dated(im):
     date = datetime.datetime.now()
     line1 = f"{date:%I:%M %p}".strip("0")
     line2 = f"{date:%B} {date.day}"
-    line3 = ""
+    lines = [line1, line2]
 
     p_x, p_y = im.size
 
-    b_y = int(3 * height * 1.1) + 10
-    b_x = max(
-        [font.getsize(line)[0] for index, line in enumerate([line1, line2, line3])]
-    ) + int(im.size[0] / 20)
+    b_y = int(len(lines) * height * line_spacing) + height // 2
+    b_x = max([font.getsize(line)[0] for line in lines]) + int(zwidth)
 
-    gradient = Image.new("L", im.size, 0)
+    # gradient = Image.new("L", im.size, 0)
     # gradient = Image.new('L', (1, 255))
     # for y in range(255):
     #    gradient.putpixel((0, 254 - y), y)
@@ -119,28 +155,57 @@ def dated(im):
     # edit = ImageDraw.Draw(im2)
 
     draw = ImageDraw.Draw(im, "RGBA")
-    draw.rectangle((right, upper, left, lower), fill=(100, 100, 100, 127))
+    draw.rectangle((right, upper, left, lower), fill=(100, 100, 100, 200))
 
-    for index, line in enumerate([line1, line2, line3]):
+    for index, line in enumerate(lines):
         width, _ = font.getsize(line)
+        text_y = p_y - height * line_spacing * ((len(lines) - index) + 0.5)
         draw.text(
-            (p_x - 15 - width, p_y - height * 1.1 * ((3 - index) + 0.5)),
+            (p_x - zwidth // 2 - width, text_y),
             line,
             (255, 255, 255),
             font,
         )
 
+    # Draw the inspirational quote
     font = ImageFont.truetype(
-        "/usr/share/fonts/truetype/lato/Lato-Heavy.ttf", points // 3
+        "/usr/share/fonts/truetype/lato/Lato-Heavy.ttf", points // 2
     )
 
-    width, _ = font.getsize("Trust in the lord with all your heart\nProverbs 3:5-6")
-    draw.text(
-        (p_x - 15 - width, p_y - height * 1.1 * ((3 - index) + 0.5)),
-        "Trust in the lord with all your heart\nProverbs 3:5-6",
-        (255, 255, 255),
-        font,
+    insplines, box_width = wrap(inspiration[0], font, im.size[1] // 2)
+
+    zwidth, height = font.getsize("0")
+
+    b_y = int((len(insplines) + 2) * height * line_spacing) + 10
+    b_x = box_width + zwidth
+
+    right, upper, left, lower = (
+        zwidth // 2,
+        p_y - b_y - int(height),
+        b_x + zwidth,
+        p_y - int(height),
     )
+    draw.rectangle((right, upper, left, lower), fill=(100, 100, 100, 200))
+
+    line_count = len(insplines) + 1
+    for index, line in enumerate([*insplines, inspiration[1]]):
+        text_y = p_y - height * line_spacing * ((line_count - index) + 1.5)
+        if index == len(insplines):
+            # right justify the reference / source
+            width, _ = font.getsize(line)
+            draw.text(
+                (zwidth + box_width - width, text_y),
+                line,
+                (255, 255, 255),
+                font,
+            )
+        else:
+            draw.text(
+                (zwidth, text_y),
+                line,
+                (255, 255, 255),
+                font,
+            )
 
     return im.convert("RGB")
 
@@ -155,7 +220,7 @@ def image(fn, width=300, height=500):
 
         im = crop_to(im, width=width, height=height)
 
-        im = dated(im)
+        im = dated(im, random.choice(INSPIRATION))
 
         im.save("output.jpg")
 
